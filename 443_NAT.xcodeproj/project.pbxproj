@@ -28,6 +28,7 @@
 		FA0E754D226E044E002C34B5 /* NAT.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = NAT.c; sourceTree = "<group>"; };
 		FA0E754F226E093F002C34B5 /* checksum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = checksum.c; sourceTree = "<group>"; };
 		FA0E7550226E093F002C34B5 /* checksum.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = checksum.h; sourceTree = "<group>"; };
+		FA0E7552226E0B25002C34B5 /* NAT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NAT.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -44,6 +45,7 @@
 		FA0E753A226E03DB002C34B5 = {
 			isa = PBXGroup;
 			children = (
+				FA0E7552226E0B25002C34B5 /* NAT.h */,
 				FA0E754F226E093F002C34B5 /* checksum.c */,
 				FA0E7550226E093F002C34B5 /* checksum.h */,
 				FA0E754D226E044E002C34B5 /* NAT.c */,
