@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		FA0E754E226E044E002C34B5 /* NAT.c in Sources */ = {isa = PBXBuildFile; fileRef = FA0E754D226E044E002C34B5 /* NAT.c */; };
 		FA0E7551226E093F002C34B5 /* checksum.c in Sources */ = {isa = PBXBuildFile; fileRef = FA0E754F226E093F002C34B5 /* checksum.c */; };
+		FA0E7556226E13F2002C34B5 /* iptable.c in Sources */ = {isa = PBXBuildFile; fileRef = FA0E7555226E13F2002C34B5 /* iptable.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -29,6 +30,8 @@
 		FA0E754F226E093F002C34B5 /* checksum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = checksum.c; sourceTree = "<group>"; };
 		FA0E7550226E093F002C34B5 /* checksum.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = checksum.h; sourceTree = "<group>"; };
 		FA0E7552226E0B25002C34B5 /* NAT.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NAT.h; sourceTree = "<group>"; };
+		FA0E7554226E13F2002C34B5 /* iptable.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = iptable.h; sourceTree = "<group>"; };
+		FA0E7555226E13F2002C34B5 /* iptable.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = iptable.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -45,6 +48,8 @@
 		FA0E753A226E03DB002C34B5 = {
 			isa = PBXGroup;
 			children = (
+				FA0E7554226E13F2002C34B5 /* iptable.h */,
+				FA0E7555226E13F2002C34B5 /* iptable.c */,
 				FA0E7552226E0B25002C34B5 /* NAT.h */,
 				FA0E754F226E093F002C34B5 /* checksum.c */,
 				FA0E7550226E093F002C34B5 /* checksum.h */,
@@ -119,6 +124,7 @@
 			files = (
 				FA0E7551226E093F002C34B5 /* checksum.c in Sources */,
 				FA0E754E226E044E002C34B5 /* NAT.c in Sources */,
+				FA0E7556226E13F2002C34B5 /* iptable.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
