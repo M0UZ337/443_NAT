@@ -149,13 +149,14 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 if (tcph->rst) {
                     //handle RST packet
                     deleteEntry(result, ip_table);
-                    port[
+                    port[];
                 }
                 else {
                     // 4-way hand shake
                 }
                 return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
             }
+             return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
         }
     }
     else {
