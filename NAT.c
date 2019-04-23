@@ -56,10 +56,11 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     struct iphdr *iph = (struct iphdr *)pktData;
     
     //TCP header
-    struct tcphdr *tcph = (struct tcphdr *);
+    struct tcphdr *tcph = (struct tcphdr *)(pktData + (iph->ihl << 2));;
     
     // Subnet Mask
     int mask_int = atoi(subnet_mask);
+    unsigned int local_mask = 0xffffffff << (32 – mask_int);
     unsigned int local_mask = 0xffffffff << (32 - mask_int);
     struct nfqnl_msg_packet_hdr *nfq_header;
     nfq_header = nfq_get_msg_packet_hdr(pkt);
@@ -94,6 +95,30 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     dest_addr.port = tcp->dest;
     
     
+    if (iph->protocol == IPPROTO_TCP) {
+        // TCP packets
+        if (ntohl(iph->saddr) & local_mask) == local_network) {
+            // outbound packet
+        } else {
+            // inbound packet
+            result = searchEntry(iph, iptable);
+            if (result != NULL) {
+                //translation
+                iph->daddr = htonl(result->translated_address->ip);
+                tcph->dest = htons(result->translated_address->port);
+                
+                //Chekcsum
+                iph->check =
+                tcph->check =
+                
+                if (tcph->rst) {
+                    //handle RST packet
+                    deleteEntry(result, iptable);
+                }
+                else {
+                    // 4-way hand shake
+                }
+                return nfq_set_verdict(qh, id, NF_ACCEPT, 0, pktData);
     if (ntohl(iph->saddr) & local_mask) == local_network) {
         // outbound packet
         struct Entry temp;
@@ -129,10 +154,10 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
 
     } else {
         // Others, can be ignored
-        printf("Non-TCP.");
+       return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
     }
    
-    return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+    return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
 }
 
 int main(int argc, const char * argv[])
