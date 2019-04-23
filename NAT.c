@@ -21,15 +21,43 @@
 
 #include "checksum.h"
 
+char *subnet_mask;
+char *internal_ip;
+char *public_ip;
 
 static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     struct nfq_data *pkt, void *cbData) {
     
     int mask_int = atoi(subnet_mask);
-    unsigned int local_mask = 0xffffffff << (32 – mask_int);
+    unsigned int local_mask = 0xffffffff << (32 - mask_int);
+    struct nfqnl_msg_packet_hdr *nfq_header;
+    nfq_header = nfq_get_msg_packet_hdr(pkt);
+    
+    char *payload_ptr;
+    nfq_get_payload(pkt, payload_ptr);
+    
+    struct iphdr *iph = (struct iphdr*) payload_ptr;
+    
+    struct tcphdr *tcph = (struct tcphdr*)(payload_ptr-sizeof(struct iphdr));
+    int SYN = 0;
+    int RST = 0;
+    
+    
+    //check the content inside the packet
+    
     
     if (ntohl(iph->saddr) & local_mask) == local_network) {
         // outbound packet
+		int found_entry = 0;
+		// search for pair
+		if (found_entry){
+
+		}
+		else {
+			//create new entry
+
+		}
+
     } else {
         // inbound packet
         
@@ -46,6 +74,15 @@ int main(int argc, const char * argv[])
     int fd, res;
     int BUF_SIZE = 4096;
     char buf[BUF_SIZE];
+    
+    if (argc != 4) {
+        printf("Wrong no. of argument\n");
+        exit(1);
+    }
+    
+    public_ip = argv[1];
+    internal_ip = argv[2];
+    subnet_mask = argv[3];
     
     if (!(nfqHandle = nfq_open())) {
         fprintf(stderr, "Error in nfq_open()\n");
