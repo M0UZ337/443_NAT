@@ -28,7 +28,23 @@ struct IPtable ip_table;
 
 static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     struct nfq_data *pkt, void *cbData) {
+
+    //nfqueue header
+    unsigned int id = 0;
+    struct nfqnl_msg_packet_hdr *header;
+    assert(header = nfq_get_msg_packet_hdr(pkt));
+    id = ntohl(header->packet_id);
     
+    //IP header
+    unsigned char *pktData;
+    int ip_pkt_len = nfq_get_payload(pkt, &pktData);
+    
+    struct iphdr *iph = (struct iphdr *)pktData;
+    
+    //TCP header
+    struct tcphdr *tcph = (struct tcphdr *);
+    
+    // Subnet Mask
     int mask_int = atoi(subnet_mask);
     unsigned int local_mask = 0xffffffff << (32 - mask_int);
     struct nfqnl_msg_packet_hdr *nfq_header;
@@ -87,10 +103,11 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
 		}
 
     } else {
-        // inbound packet
-        
+        // Others, can be ignored
+        printf("Non-TCP.");
     }
-    return 0;
+   
+    return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
 }
 
 int main(int argc, const char * argv[])
