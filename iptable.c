@@ -40,6 +40,9 @@ void printTable(IPtable *iptable)
     Entry *reader = (Entry *)malloc(sizeof(Entry));
     memset(reader,0,sizeof(Entry));
     reader = iptable->head;
+    if (reader == NULL) {
+        printf("---------------------------------------------------------------------\n");
+    }
     while (reader != NULL)
     {
         struct in_addr temp;
