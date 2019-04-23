@@ -114,11 +114,12 @@ int deleteEntry(Address *original_address, IPtable *iptable)
     }
     return state;
 }
-/*
- How to use:
- gcc -o iptable iptable.c
- ./iptable 111.111.111.111 12345 222.222.222.222 10086
+
+// How to use:
+// gcc -o iptable iptable.c
+// ./iptable 111.111.111.111 12345 222.222.222.222 10086
 //////////////////////////////////////////////////////////
+/*
 int main(int argc, const char * argv[])
 {
     IPtable *iptable = makeIPtable();
