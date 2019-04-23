@@ -97,9 +97,13 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     // FIN packet arrived
                     
                 }
-                else {
-                    //start translated
-                }
+                //start translation
+                iph->saddr = temp->translated_address->ip;
+                tcp->source = temp->translated_address->port;
+                
+                iph->check = ip_checksum((unsigned char *) iph);
+                tcph->check = tcp_checksum((unsigned char *) iph);
+                return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
             }
             else {
                 //can't find pair
