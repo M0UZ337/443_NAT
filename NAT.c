@@ -47,7 +47,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     // Subnet Mask
     int mask_int = atoi(subnet_mask);
     unsigned int local_mask = 0xffffffff << (32 – mask_int);
-    unsigned int local_mask = 0xffffffff << (32 - mask_int);
+    
     struct nfqnl_msg_packet_hdr *nfq_header;
     nfq_header = nfq_get_msg_packet_hdr(pkt);
     unsigned int SYN, RST, FIN, ACK;
@@ -64,9 +64,6 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     }
     iph->check;
     
-    
-    struct tcphdr *tcph = (struct tcphdr*)(payload_ptr + iph->hl << 2);
- 
     //check the flag of the tcp header
     SYN = tcph->syn;
     ACK = tcph->ack;
@@ -85,9 +82,28 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
         // TCP packets
         if (ntohl(iph->saddr) & local_mask) == local_network) {
             // outbound packet
+            int found_entry = 0;
+            // search for pair
+            searchEntry(source_addr, ip_table);
+            if (found_entry){
+                //found pair
+                //translates IP address and source port number
+            }
+            else {
+                //can't find pair
+                //see if SYN packet
+                if (SYN) {
+                    // crete entry
+                }
+                else {
+                    //drop packet
+                    
+                }
+                
+            }
         } else {
             // inbound packet
-            result = searchEntry(iph, iptable);
+            result = searchEntry(iph, ip_table);
             if (result != NULL) {
                 //translation
                 iph->daddr = htonl(result->translated_address->ip);
@@ -99,34 +115,14 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 
                 if (tcph->rst) {
                     //handle RST packet
-                    deleteEntry(result, iptable);
+                    deleteEntry(result, ip_table);
                 }
                 else {
                     // 4-way hand shake
                 }
                 return nfq_set_verdict(qh, id, NF_ACCEPT, 0, pktData);
-    if (ntohl(iph->saddr) & local_mask) == local_network) {
-        // outbound packet
-		int found_entry = 0;
-		// search for pair
-        searchEntry(source_addr, ip_table);
-		if (found_entry){
-            //found pair
-            //translates IP address and source port number
-		}
-		else {
-			//can't find pair
-            //see if SYN packet
-            if (SYN) {
-                // crete entry
             }
-            else {
-                //drop packet
-                
-            }
-
-		}
-
+        }
     } else {
         // Others, can be ignored
        return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
