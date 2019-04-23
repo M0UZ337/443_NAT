@@ -71,10 +71,6 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     
     struct iphdr *iph = (struct iphdr*) payload_ptr;
     
-    iph->protocol;
-    iph->check;
-    
-    
     struct tcphdr *tcph = (struct tcphdr*)(payload_ptr + iph->hl << 2);
  
     //check the flag of the tcp header
@@ -94,12 +90,25 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
         // TCP packets
         if (ntohl(iph->saddr) & local_mask) == local_network) {
             // outbound packet
-            struct Entry temp;
+            struct Entry *temp = (struct Entry*)malloc(sizeof(struct Entry));
             // search for pair
             temp = searchEntry(source_addr, ip_table);
             if (temp != NULL){
                 //found pair
-                //translates IP address and source port number
+                if (RST) {
+                    // RST packet arrived
+                    // delete entry
+                    deleteEntry(temp, ip_table);
+                    int freePort = temp->original_address->port;
+                    port[freePort + 10000] = 0;
+                }
+                else if (FIN) {
+                    // FIN packet arrived
+                    
+                }
+                else {
+                    //start translated
+                }
             }
             else {
                 //can't find pair
@@ -115,12 +124,19 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     addEntry->translated_address->port = wan_port;
                     newEntry(addEntry, ip_table);
                     
-                    // modify the header of the packet
+                    // start translation
+                    iph->saddr = htonl(wan_ip);
+                    tcph->source = htons(wan_port);
                     
+                    iph->check = ip_checksum((unsigned char *) iph);
+                    tcph->check = tcp_checksum((unsigned char *) iph);
+                    
+                    printTable(ip_table);
+                    return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
                 }
                 else {
                     //drop packet
-                    
+                    return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
                 }
             }
         } else {
