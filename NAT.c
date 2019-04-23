@@ -143,12 +143,13 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 tcph->dest = htons(result->translated_address->port);
                 
                 //Chekcsum
-                iph->check =
-                tcph->check =
+                iph->check = tcp_checksum((unsigned char *) iph);
+                tcph->check = ip_checksum((unsigned char *) iph);
                 
                 if (tcph->rst) {
                     //handle RST packet
                     deleteEntry(result, ip_table);
+                    port[
                 }
                 else {
                     // 4-way hand shake
