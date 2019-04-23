@@ -26,7 +26,14 @@ Entry* makeEntry(Address *original_address, Address *translated_address)
 
 void printTable(IPtable *iptable)
 {
-    //...
+    printf("Original:%24s%8s | Translated:%24s%8s\n","IP","PORT","IP","PORT");
+    Entry *reader = (Entry *)malloc(sizeof(Entry));
+    reader = iptable->head;
+    while (reader != NULL)
+    {
+        printf("         %24u%8d |            %24u%8d\n",reader->original_address->ip, reader->original_address->port, reader->translated_address->ip, reader->translated_address->port);
+        reader = reader->next;
+    }
     return;
 }
 
@@ -42,6 +49,7 @@ void newEntry(Entry *entry, IPtable *iptable)
         iptable->tail->next = entry;
         iptable->tail = entry;
     }
+    return;
 }
 
 int deleteEntry(Address *original_address, IPtable *iptable)
