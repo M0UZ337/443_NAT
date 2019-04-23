@@ -5,12 +5,20 @@
 //  Created by Mo Mo on 22/4/2019.
 //  Copyright © 2019 Mo Mo. All rights reserved.
 //
-
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "iptable.h"
 
 IPtable* makeIPtable()
 {
     IPtable *iptable = (IPtable *)malloc(sizeof(IPtable));
+    memset(iptable,0,sizeof(IPtable));
     iptable->head = iptable->tail = NULL;
     return iptable;
 }
@@ -18,6 +26,7 @@ IPtable* makeIPtable()
 Entry* makeEntry(Address *original_address, Address *translated_address)
 {
     Entry *entry = (Entry *)malloc(sizeof(Entry));
+    memset(entry,0,sizeof(Entry));
     entry->next = NULL;
     entry->original_address = original_address;
     entry->translated_address = translated_address;
@@ -26,14 +35,22 @@ Entry* makeEntry(Address *original_address, Address *translated_address)
 
 void printTable(IPtable *iptable)
 {
-    printf("Original:%24s%8s | Translated:%24s%8s\n","IP","PORT","IP","PORT");
+    printf("Original:%15s%8s | Translated:%15s%8s\n","IP","PORT","IP","PORT");
+    printf("---------------------------------------------------------------------\n");
     Entry *reader = (Entry *)malloc(sizeof(Entry));
+    memset(reader,0,sizeof(Entry));
     reader = iptable->head;
     while (reader != NULL)
     {
-        printf("         %24u%8d |            %24u%8d\n",reader->original_address->ip, reader->original_address->port, reader->translated_address->ip, reader->translated_address->port);
+        struct in_addr temp;
+        temp.s_addr = htonl(reader->original_address->ip);
+        printf("         %15s%8d ",(char*)inet_ntoa(temp), reader->original_address->port);
+        temp.s_addr = htonl(reader->translated_address->ip);
+        printf("|            %15s%8d\n",(char*)inet_ntoa(temp), reader->translated_address->port);
+        printf("---------------------------------------------------------------------\n");
         reader = reader->next;
     }
+    printf("\n");
     return;
 }
 
@@ -97,3 +114,43 @@ int deleteEntry(Address *original_address, IPtable *iptable)
     }
     return state;
 }
+
+// How to use:
+// gcc -o iptable iptable.c
+// ./iptable 111.111.111.111 12345 222.222.222.222 10086
+//////////////////////////////////////////////////////////
+/*
+int main(int argc, const char * argv[])
+{
+    IPtable *iptable = makeIPtable();
+    char *original_ip = argv[1];
+    char *original_port = argv[2];
+    char *translated_ip = argv[3];
+    char *translated_port = argv[4];
+    unsigned int original;
+    unsigned int translated;
+    inet_aton(original_ip, &original);
+    original = ntohl(original);
+    inet_aton(translated_ip, &translated);
+    translated = ntohl(translated);
+    
+    Address *ori = (Address *)malloc(sizeof(Address));
+    Address *tran = (Address *)malloc(sizeof(Address));
+    memset(ori,0,sizeof(Address));
+    memset(tran,0,sizeof(Address));
+    ori->ip = original;
+    ori->port = atoi(original_port);
+    tran->ip = translated;
+    tran->port = atoi(translated_port);
+    Entry *entry = (Entry*)malloc(sizeof(Entry));
+    entry = makeEntry(ori, tran);
+    newEntry(entry, iptable);
+    printTable(iptable);
+    Entry *search = (Entry*)malloc(sizeof(Entry));
+    search = searchEntry(ori, iptable);
+    deleteEntry(ori, iptable);
+    printTable(iptable);
+    newEntry(search, iptable);
+    printTable(iptable);
+}
+*/
