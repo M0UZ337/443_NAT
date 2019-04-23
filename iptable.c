@@ -40,6 +40,9 @@ void printTable(IPtable *iptable)
     Entry *reader = (Entry *)malloc(sizeof(Entry));
     memset(reader,0,sizeof(Entry));
     reader = iptable->head;
+    if (reader == NULL) {
+        printf("---------------------------------------------------------------------\n");
+    }
     while (reader != NULL)
     {
         struct in_addr temp;
@@ -114,11 +117,12 @@ int deleteEntry(Address *original_address, IPtable *iptable)
     }
     return state;
 }
-/*
- How to use:
- gcc -o iptable iptable.c
- ./iptable 111.111.111.111 12345 222.222.222.222 10086
+
+// How to use:
+// gcc -o iptable iptable.c
+// ./iptable 111.111.111.111 12345 222.222.222.222 10086
 //////////////////////////////////////////////////////////
+/*
 int main(int argc, const char * argv[])
 {
     IPtable *iptable = makeIPtable();
