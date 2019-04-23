@@ -9,9 +9,9 @@
 #include <time.h> // required by nanosleep()
 #include <errno.h> // required by errno
 #include <pthread.h>
+#include <netinet/in.h>
 #include <netinet/ip.h>        // required by "struct iph"
 #include <netinet/tcp.h>    // required by "struct tcph"
-#include <netinet/udp.h>    // required by "struct udph"
 #include <netinet/ip_icmp.h>    // required by "struct icmphdr"
 #include <linux/types.h>
 #include <linux/netfilter.h>
@@ -24,6 +24,7 @@
 char *subnet_mask;
 char *internal_ip;
 char *public_ip;
+struct IPtable ip_table;
 
 static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     struct nfq_data *pkt, void *cbData) {
@@ -32,29 +33,56 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     unsigned int local_mask = 0xffffffff << (32 - mask_int);
     struct nfqnl_msg_packet_hdr *nfq_header;
     nfq_header = nfq_get_msg_packet_hdr(pkt);
-    
+    unsigned int SYN, RST, FIN, ACK;
+    //check the content inside the packet
     char *payload_ptr;
     nfq_get_payload(pkt, payload_ptr);
     
     struct iphdr *iph = (struct iphdr*) payload_ptr;
     
-    struct tcphdr *tcph = (struct tcphdr*)(payload_ptr-sizeof(struct iphdr));
-    int SYN = 0;
-    int RST = 0;
+    iph->protocol;
+    if (iph->protocol != IPPROTO_TCP) {
+        //drop packet
+        
+    }
+    iph->check;
     
     
-    //check the content inside the packet
+    struct tcphdr *tcph = (struct tcphdr*)(payload_ptr + iph->hl << 2);
+ 
+    //check the flag of the tcp header
+    SYN = tcph->syn;
+    ACK = tcph->ack;
+    FIN = tcph->fin;
+    RST = tcph->rst;
+    
+    struct Address source_addr;
+    source_addr.ip = iph->saddr;
+    source_addr.port = tcph->source;
+    struct Address dest_addr;
+    dest_addr.ip = iph->daddr;
+    dest_addr.port = tcp->dest;
     
     
     if (ntohl(iph->saddr) & local_mask) == local_network) {
         // outbound packet
 		int found_entry = 0;
 		// search for pair
+        searchEntry(source_addr, ip_table);
 		if (found_entry){
-
+            //found pair
+            //translates IP address and source port number
 		}
 		else {
-			//create new entry
+			//can't find pair
+            //see if SYN packet
+            if (SYN) {
+                // crete entry
+            }
+            else {
+                //drop packet
+                
+            }
 
 		}
 
@@ -83,6 +111,7 @@ int main(int argc, const char * argv[])
     public_ip = argv[1];
     internal_ip = argv[2];
     subnet_mask = argv[3];
+    ip_table = makeIPtable();
     
     if (!(nfqHandle = nfq_open())) {
         fprintf(stderr, "Error in nfq_open()\n");
