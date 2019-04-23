@@ -8,8 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -30,6 +28,8 @@ Entry* makeEntry(Address *original_address, Address *translated_address)
     entry->next = NULL;
     entry->original_address = original_address;
     entry->translated_address = translated_address;
+    entry->state[0] = 0;
+    entry->state[1] = 0;
     return entry;
 }
 
@@ -40,6 +40,10 @@ void printTable(IPtable *iptable)
     Entry *reader = (Entry *)malloc(sizeof(Entry));
     memset(reader,0,sizeof(Entry));
     reader = iptable->head;
+    if (reader == NULL)
+    {
+        printf("---------------------------------------------------------------------\n");
+    }
     while (reader != NULL)
     {
         struct in_addr temp;
@@ -95,7 +99,7 @@ int deleteEntry(Address *original_address, IPtable *iptable)
     {
         if (search->original_address == original_address)
         {
-            //Head is the target
+            //If the target is head
             if (prev == NULL)
             {
                 iptable->head = iptable->head->next;
