@@ -52,6 +52,22 @@ void newEntry(Entry *entry, IPtable *iptable)
     return;
 }
 
+int searchEntry(Address *original_address, IPtable *iptable)
+{
+    int state = 0;
+    Entry *search = (Entry *)malloc(sizeof(Entry));
+    while (search != NULL)
+    {
+        if (search->original_address == original_address)
+        {
+            state = 1;
+            break;
+        }
+        search = search->next;
+    }
+    return state;
+}
+
 int deleteEntry(Address *original_address, IPtable *iptable)
 {
     int state = 0;
