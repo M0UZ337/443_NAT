@@ -24,7 +24,21 @@
 char *subnet_mask;
 char *internal_ip;
 char *public_ip;
+unsigned int wan_ip;
+unsigned int wan_port;
 struct IPtable ip_table;
+int port[2001] = {0};
+
+
+int assign_port(){
+    for (int i = 0; i < 2001; i++) {
+        if (port[i] == 0) {
+            port[i] = 1;
+            return i + 10000;
+        }
+    }
+    return -1;
+}
 
 static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     struct nfq_data *pkt, void *cbData) {
@@ -57,13 +71,8 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     
     struct iphdr *iph = (struct iphdr*) payload_ptr;
     
-    iph->protocol;
-    if (iph->protocol != IPPROTO_TCP) {
-        //drop packet
-        
-    }
-    iph->check;
-    
+    struct tcphdr *tcph = (struct tcphdr*)(payload_ptr + iph->hl << 2);
+ 
     //check the flag of the tcp header
     SYN = tcph->syn;
     ACK = tcph->ack;
@@ -77,27 +86,57 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     dest_addr.ip = iph->daddr;
     dest_addr.port = tcp->dest;
     
-    
     if (iph->protocol == IPPROTO_TCP) {
         // TCP packets
         if (ntohl(iph->saddr) & local_mask) == local_network) {
             // outbound packet
-            int found_entry = 0;
+            struct Entry *temp = (struct Entry*)malloc(sizeof(struct Entry));
             // search for pair
-            searchEntry(source_addr, ip_table);
-            if (found_entry){
+            temp = searchEntry(source_addr, ip_table);
+            if (temp != NULL){
                 //found pair
-                //translates IP address and source port number
+                if (RST) {
+                    // RST packet arrived
+                    // delete entry
+                    deleteEntry(temp, ip_table);
+                    int freePort = temp->original_address->port;
+                    port[freePort + 10000] = 0;
+                }
+                else if (FIN) {
+                    // FIN packet arrived
+                    
+                }
+                else {
+                    //start translated
+                }
             }
             else {
                 //can't find pair
                 //see if SYN packet
                 if (SYN) {
-                    // crete entry
+                    // find avaliable port
+                    wan_port = assign_port();
+                    // create entry
+                    struct Entry *addEntry = (struct Entry*) malloc(sizeof(struct Entry));
+                    addEntry->original_address->ip = source_addr.ip;
+                    addEntry->original_address->port = source_addr.port;
+                    addEntry->translated_address->ip = wan_ip;
+                    addEntry->translated_address->port = wan_port;
+                    newEntry(addEntry, ip_table);
+                    
+                    // start translation
+                    iph->saddr = htonl(wan_ip);
+                    tcph->source = htons(wan_port);
+                    
+                    iph->check = ip_checksum((unsigned char *) iph);
+                    tcph->check = tcp_checksum((unsigned char *) iph);
+                    
+                    printTable(ip_table);
+                    return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
                 }
                 else {
                     //drop packet
-                    
+                    return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
                 }
                 
             }
@@ -123,7 +162,8 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 return nfq_set_verdict(qh, id, NF_ACCEPT, 0, pktData);
             }
         }
-    } else {
+    }
+    else {
         // Others, can be ignored
        return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
     }
@@ -147,6 +187,8 @@ int main(int argc, const char * argv[])
     }
     
     public_ip = argv[1];
+    inet_aton(public_ip, &wan_ip);
+    wan_ip = ntohl(wan_ip);
     internal_ip = argv[2];
     subnet_mask = argv[3];
     ip_table = makeIPtable();
