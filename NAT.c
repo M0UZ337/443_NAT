@@ -72,10 +72,6 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     struct iphdr *iph = (struct iphdr*) payload_ptr;
     
     iph->protocol;
-    if (iph->protocol != IPPROTO_TCP) {
-        //drop packet
-        
-    }
     iph->check;
     
     
@@ -94,11 +90,39 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     dest_addr.ip = iph->daddr;
     dest_addr.port = tcp->dest;
     
-    
     if (iph->protocol == IPPROTO_TCP) {
         // TCP packets
         if (ntohl(iph->saddr) & local_mask) == local_network) {
             // outbound packet
+            struct Entry temp;
+            // search for pair
+            temp = searchEntry(source_addr, ip_table);
+            if (temp != NULL){
+                //found pair
+                //translates IP address and source port number
+            }
+            else {
+                //can't find pair
+                //see if SYN packet
+                if (SYN) {
+                    // find avaliable port
+                    wan_port = assign_port();
+                    // create entry
+                    struct Entry *addEntry = (struct Entry*) malloc(sizeof(struct Entry));
+                    addEntry->original_address->ip = source_addr.ip;
+                    addEntry->original_address->port = source_addr.port;
+                    addEntry->translated_address->ip = wan_ip;
+                    addEntry->translated_address->port = wan_port;
+                    newEntry(addEntry, ip_table);
+                    
+                    // modify the header of the packet
+                    
+                }
+                else {
+                    //drop packet
+                    
+                }
+            }
         } else {
             // inbound packet
             result = searchEntry(iph, iptable);
@@ -119,40 +143,10 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     // 4-way hand shake
                 }
                 return nfq_set_verdict(qh, id, NF_ACCEPT, 0, pktData);
-    if (ntohl(iph->saddr) & local_mask) == local_network) {
-        // outbound packet
-        struct Entry temp;
-		// search for pair
-        temp = searchEntry(source_addr, ip_table);
-		if (temp != NULL){
-            //found pair
-            //translates IP address and source port number
-		}
-		else {
-			//can't find pair
-            //see if SYN packet
-            if (SYN) {
-                // find avaliable port
-                wan_port = assign_port();
-                // create entry
-                struct Entry *addEntry = (struct Entry*) malloc(sizeof(struct Entry));
-                addEntry->original_address->ip = source_addr.ip;
-                addEntry->original_address->port = source_addr.port;
-                addEntry->translated_address->ip = wan_ip;
-                addEntry->translated_address->port = wan_port;
-                newEntry(addEntry, ip_table);
-                
-                // modify the header of the packet
-                
             }
-            else {
-                //drop packet
-                
-            }
-
-		}
-
-    } else {
+        }
+    }
+    else {
         // Others, can be ignored
        return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
     }
