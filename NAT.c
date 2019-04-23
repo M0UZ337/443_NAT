@@ -62,13 +62,11 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     int mask_int = atoi(subnet_mask);
     unsigned int local_mask = 0xffffffff << (32 – mask_int);
     
-    unsigned int SYN, RST, FIN, ACK;
+    int SYN, RST, FIN, ACK;
+    SYN = RST = FIN = ACK = 0;
  
     //check the flag of the tcp header
-    SYN = tcph->syn;
-    ACK = tcph->ack;
-    FIN = tcph->fin;
-    RST = tcph->rst;
+    unsigned char pkt_flag = tcph->th_flags;
     
     struct Address source_addr;
     source_addr.ip = iph->saddr;
@@ -86,15 +84,16 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
             temp = searchEntry(source_addr, ip_table);
             if (temp != NULL){
                 //found pair
-                if (RST) {
+                if (pkt_flag == TH_RST) {
                     // RST packet arrived
                     // delete entry
                     deleteEntry(temp, ip_table);
                     int freePort = temp->original_address->port;
                     port[freePort + 10000] = 0;
                 }
-                else if (FIN) {
+                else if (pkt_flag == TH_FIN) {
                     // FIN packet arrived
+                    // check if have handshake before
                     
                 }
                 //start translation
@@ -108,7 +107,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
             else {
                 //can't find pair
                 //see if SYN packet
-                if (SYN) {
+                if (pkt_flag == TH_SYN) {
                     // find avaliable port
                     wan_port = assign_port();
                     // create entry
