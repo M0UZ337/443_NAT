@@ -49,7 +49,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     assert(header = nfq_get_msg_packet_hdr(pkt));
     id = ntohl(header->packet_id);
     
-    //IP header
+    //IP header, check the content inside the packet
     unsigned char *pktData;
     int ip_pkt_len = nfq_get_payload(pkt, &pktData);
     
@@ -62,16 +62,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     int mask_int = atoi(subnet_mask);
     unsigned int local_mask = 0xffffffff << (32 – mask_int);
     
-    struct nfqnl_msg_packet_hdr *nfq_header;
-    nfq_header = nfq_get_msg_packet_hdr(pkt);
     unsigned int SYN, RST, FIN, ACK;
-    //check the content inside the packet
-    char *payload_ptr;
-    nfq_get_payload(pkt, payload_ptr);
-    
-    struct iphdr *iph = (struct iphdr*) payload_ptr;
-    
-    struct tcphdr *tcph = (struct tcphdr*)(payload_ptr + iph->hl << 2);
  
     //check the flag of the tcp header
     SYN = tcph->syn;
@@ -159,7 +150,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 else {
                     // 4-way hand shake
                 }
-                return nfq_set_verdict(qh, id, NF_ACCEPT, 0, pktData);
+                return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
             }
         }
     }
