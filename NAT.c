@@ -24,14 +24,15 @@
 char *subnet_mask;
 char *internal_ip;
 char *public_ip;
-unsigned int wan_ip;
-unsigned int wan_port;
+unsigned int host_ip;
+unsigned int nat_port;
 struct IPtable ip_table;
 int port[2001] = {0};
 
 
 int assign_port(){
-    for (int i = 0; i < 2001; i++) {
+    int i;
+    for (i = 0; i < 2001; i++) {
         if (port[i] == 0) {
             port[i] = 1;
             return i + 10000;
@@ -96,6 +97,9 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     // check if have handshake before
                     
                 }
+                else if (pkt_flag == TH_ACK) {
+                    
+                }
                 //start translation
                 iph->saddr = temp->translated_address->ip;
                 tcp->source = temp->translated_address->port;
@@ -109,18 +113,18 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 //see if SYN packet
                 if (pkt_flag == TH_SYN) {
                     // find avaliable port
-                    wan_port = assign_port();
+                    nat_port = assign_port();
                     // create entry
                     struct Entry *addEntry = (struct Entry*) malloc(sizeof(struct Entry));
                     addEntry->original_address->ip = source_addr.ip;
                     addEntry->original_address->port = source_addr.port;
-                    addEntry->translated_address->ip = wan_ip;
-                    addEntry->translated_address->port = wan_port;
+                    addEntry->translated_address->ip = host_ip;
+                    addEntry->translated_address->port = nat_port;
                     newEntry(addEntry, ip_table);
                     
                     // start translation
-                    iph->saddr = htonl(wan_ip);
-                    tcph->source = htons(wan_port);
+                    iph->saddr = htonl(host_ip);
+                    tcph->source = htons(nat_port);
                     
                     iph->check = ip_checksum((unsigned char *) iph);
                     tcph->check = tcp_checksum((unsigned char *) iph);
@@ -182,8 +186,8 @@ int main(int argc, const char * argv[])
     }
     
     public_ip = argv[1];
-    inet_aton(public_ip, &wan_ip);
-    wan_ip = ntohl(wan_ip);
+    inet_aton(public_ip, &host_ip);
+    host_ip = ntohl(host_ip);
     internal_ip = argv[2];
     subnet_mask = argv[3];
     ip_table = makeIPtable();
