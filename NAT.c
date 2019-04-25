@@ -78,11 +78,12 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     
     if (iph->protocol == IPPROTO_TCP) {
         // TCP packets
-        if (ntohl(iph->saddr) & local_mask) == local_network) {
+        if ((ntohl(iph->saddr) & local_mask) == local_network) {
             // outbound packet
             struct Entry *temp = (struct Entry*)malloc(sizeof(struct Entry));
             // search for pair
             temp = searchEntry(source_addr, ip_table);
+
             if (temp != NULL){
                 //found pair
                 if (pkt_flag == TH_RST) {
@@ -136,9 +137,9 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     //drop packet
                     return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
                 }
-                
             }
-        } else {
+        }
+        else {
             // inbound packet
             result = searchEntry(iph, ip_table);
             if (result != NULL) {
@@ -153,22 +154,22 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 if (tcph->rst) {
                     //handle RST packet
                     deleteEntry(result, ip_table);
-                    port[
+                    port[];
                 }
                 else {
                     // 4-way hand shake
                 }
                 return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
             }
+            return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
         }
     }
     else {
         // Others, can be ignored
-       return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+        return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
     }
-   
-    return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
 }
+
 
 int main(int argc, const char * argv[])
 {
@@ -190,7 +191,7 @@ int main(int argc, const char * argv[])
     host_ip = ntohl(host_ip);
     internal_ip = argv[2];
     subnet_mask = argv[3];
-    ip_table = makeIPtable();
+    ip_table = IPmakeIPtable();
     
     if (!(nfqHandle = nfq_open())) {
         fprintf(stderr, "Error in nfq_open()\n");
