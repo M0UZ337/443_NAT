@@ -137,7 +137,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
         }
         else {
             // inbound packet
-            result = searchEntry(iph, ip_table);
+            result = searchEntry(source_addr, ip_table);
             if (result != NULL) {
                 //translation
                 iph->daddr = htonl(result->translated_address->ip);
@@ -147,17 +147,27 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 iph->check = tcp_checksum((unsigned char *) iph);
                 tcph->check = ip_checksum((unsigned char *) iph);
                 
-                if (tcph->rst) {
+                if (pkt_flag == TH_RST) {
                     //handle RST packet
                     deleteEntry(result, ip_table);
-                    port[];
+                    port[result->translated_address->port-10000] = 0;
                 }
                 else {
                     // 4-way hand shake
+                    if (pkt_flag == TH_FIN) {
+                        // FIN packet
+                    }
+                    else if (pkt_flag == TH_ACK) {
+                        // ACK packet
+                        
+                    }
                 }
                 return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
             }
-            return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+            else {
+                return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+            }
+            
         }
     }
     else {
