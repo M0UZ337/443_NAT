@@ -73,6 +73,16 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     struct Address dest_addr;
     dest_addr.ip = ntohl(iph->daddr);
     dest_addr.port = ntohs(tcph->dest);
+    
+    
+    struct in_addr temp;
+    printf("verify address\n");
+    temp.s_addr = htonl(source_addr.ip);
+    printf("         %15s%8d ",(char*)inet_ntoa(temp), source_addr.port);
+    temp.s_addr = htonl(dest_addr.ip);
+    printf("|            %15s%8d\n",(char*)inet_ntoa(temp), dest_addr.port);
+    
+    
 
     
     if (iph->protocol == IPPROTO_TCP) {
@@ -171,7 +181,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
             if (result != NULL) {
                 printf("found entry\n");
                 //translation
-                printf("%u  %u", host_ip, result->original_address->ip);
+                printf("port no: %u\n", result->original_address->port);
                 iph->daddr = htonl(result->original_address->ip);
                 tcph->dest = htons(result->original_address->port);
                 
@@ -210,6 +220,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 return nfq_set_verdict(myQueue, id, NF_ACCEPT, ip_pkt_len, pktData);
             }
             else {
+                printf("not entry found, dropping packet\n");
                 return nfq_set_verdict(myQueue, id, NF_DROP, 0, NULL);
             }
         }

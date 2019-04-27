@@ -77,18 +77,17 @@ Entry *searchEntry(Address *address, IPtable *iptable, int flag)
 {
     Entry *search = (Entry *)malloc(sizeof(Entry));
     search = iptable->head;
+    unsigned int ip = address->ip;
+    unsigned int port = address->port;
     while (search != NULL)
     {
-        if (search->translated_address == address && flag == 1)
-        {
+        if (flag == 0 && ip == search->original_address->ip && port == search->original_address->port) {
             break;
         }
-        else {
-        }
-        if (search->original_address == address && flag == 0)
-        {
+        if (flag == 1 && ip == search->translated_address->ip && port == search->translated_address->port) {
             break;
         }
+        
         search = search->next;
     }
     return search;
