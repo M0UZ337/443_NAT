@@ -89,17 +89,27 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 if (pkt_flag == TH_RST) {
                     // RST packet arrived
                     // delete entry
-                    deleteEntry(temp, ip_table);
-                    int freePort = temp->original_address->port;
+                    deleteEntry(temp->original_address, ip_table);
+                    int freePort = temp->translated_address->port;
                     port[freePort + 10000] = 0;
                 }
                 else if (pkt_flag == TH_FIN) {
                     // FIN packet arrived
                     // check if have handshake before
-                    
+                    if (temp->state[0] == 2) {
+                        // have receive FIN before, we are going to reply with FIN
+                        temp->state[1] = 1;
+                    }
+                    else {
+                        temp->state[1] = 2;
+                    }
                 }
                 else if (pkt_flag == TH_ACK) {
-                    
+                    if (temp->state[0] == 2 && temp->state[1] == 1) {
+                        deleteEntry(temp->original_address, ip_table);
+                        int freePort = temp->original_address->port;
+                        port[freePort + 10000] = 0;
+                    }
                 }
                 //start translation
                 iph->saddr = temp->translated_address->ip;
@@ -160,10 +170,20 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     // 4-way hand shake
                     if (pkt_flag == TH_FIN) {
                         // FIN packet
+                        if (result->status[1] == 2) {
+                            result->status[0] = 1;
+                        }
+                        else {
+                            result->status[0] = 2;
+                        }
                     }
                     else if (pkt_flag == TH_ACK) {
                         // ACK packet
-                        
+                        if (result->status[0] == 1 && result->status[1] == 2) {
+                            deleteEntry(result->original_address, ip_table);
+                            int freeport = result->translated_address->port;
+                            port[10000+ freeport] = 0;
+                        }
                     }
                 }
                 return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
@@ -171,7 +191,6 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
             else {
                 return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
             }
-            
         }
     }
     else {

@@ -26,7 +26,7 @@ struct Entry
     Entry *next;
     Address *original_address;
     Address *translated_address;
-    int state[2];               //in, out
+    int state[2] = {0};               //in = state[0], out = state[1] //1 = passive, 2 = active
 };
 
 struct IPtable
