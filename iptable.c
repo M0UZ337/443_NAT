@@ -73,13 +73,19 @@ void newEntry(Entry *entry, IPtable *iptable)
     return;
 }
 
-Entry *searchEntry(Address *original_address, IPtable *iptable)
+Entry *searchEntry(Address *address, IPtable *iptable, int flag)
 {
     Entry *search = (Entry *)malloc(sizeof(Entry));
     search = iptable->head;
     while (search != NULL)
     {
-        if (search->original_address == original_address)
+        if (search->translated_address == address && flag == 1)
+        {
+            break;
+        }
+        else {
+        }
+        if (search->original_address == address && flag == 0)
         {
             break;
         }

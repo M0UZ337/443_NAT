@@ -2,6 +2,6 @@
 #define NAT_h
 
 #include "checksum.h"
-#include "iptable.h"
+
 
 #endif

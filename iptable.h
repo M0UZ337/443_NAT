@@ -48,7 +48,7 @@ void printTable(IPtable *iptable);
 //Translate the Address first and pass into the function
 void newEntry(Entry *entry, IPtable *iptable);
 //Search the corisponding Entry from iptable
-Entry* searchEntry(Address *original_address, IPtable *iptable);
+Entry* searchEntry(Address *address, IPtable *iptable, int flag);
 //Delete the Entry by searching it using original address (return 0 if fail/ 1 if success)
 int deleteEntry(Address *original_address, IPtable *iptable);
 

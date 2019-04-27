@@ -17,9 +17,7 @@
 #include <linux/netfilter.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
 #include <assert.h>
-
-#include "NAT.h"
-
+#include "iptable.h"
 #include "checksum.h"
 
 char *subnet_mask;
@@ -67,32 +65,39 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
  
     //check the flag of the tcp header
     unsigned char pkt_flag = tcph->th_flags;
+    printf("flag of pkt: %u\n", pkt_flag);
     
     struct Address source_addr;
-    source_addr.ip = iph->saddr;
-    source_addr.port = tcph->source;
+    source_addr.ip = ntohl(iph->saddr);
+    source_addr.port = ntohs(tcph->source);
     struct Address dest_addr;
-    dest_addr.ip = iph->daddr;
-    dest_addr.port = tcph->dest;
+    dest_addr.ip = ntohl(iph->daddr);
+    dest_addr.port = ntohs(tcph->dest);
+
     
     if (iph->protocol == IPPROTO_TCP) {
         // TCP packets
         if ((ntohl(iph->saddr) & local_mask) == local_network) {
             // outbound packet
+            printf("outbound\n");
             struct Entry *temp = (struct Entry*)malloc(sizeof(struct Entry));
             // search for pair
-            temp = searchEntry(&source_addr, ip_table);
+            temp = searchEntry(&source_addr, ip_table, 0);
 
             if (temp != NULL){
                 //found pair
+                printf("found entry\n");
                 if (pkt_flag == TH_RST) {
+                    printf("RST pkt\n");
                     // RST packet arrived
                     // delete entry
                     deleteEntry(temp->original_address, ip_table);
                     int freePort = temp->translated_address->port;
                     port[freePort + 10000] = 0;
+                    printTable(ip_table);
                 }
                 else if (pkt_flag == TH_FIN) {
+                    printf("FIN pkt\n");
                     // FIN packet arrived
                     // check if have handshake before
                     if (temp->state[0] == 2) {
@@ -104,15 +109,17 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     }
                 }
                 else if (pkt_flag == TH_ACK) {
+                    printf("ACK pkt\n");
                     if (temp->state[0] == 2 && temp->state[1] == 1) {
                         deleteEntry(temp->original_address, ip_table);
                         int freePort = temp->original_address->port;
                         port[freePort + 10000] = 0;
+                        printTable(ip_table);
                     }
                 }
                 //start translation
-                iph->saddr = temp->translated_address->ip;
-                tcph->source = temp->translated_address->port;
+                iph->saddr = htonl(temp->translated_address->ip);
+                tcph->source = htons(temp->translated_address->port);
                 
                 iph->check = ip_checksum((unsigned char *) iph);
                 tcph->check = tcp_checksum((unsigned char *) iph);
@@ -122,20 +129,27 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 //can't find pair
                 //see if SYN packet
                 if (pkt_flag == TH_SYN) {
+                    printf("new entry+SYN packet\n");
                     // find avaliable port
                     nat_port = assign_port();
                     // create entry
+                    printf("adding new entry: %d\n", source_addr.ip);
                     struct Entry *addEntry = (struct Entry*) malloc(sizeof(struct Entry));
-                    addEntry->original_address->ip = source_addr.ip;
+                    struct Address *taddr = (struct Address*) malloc(sizeof(struct Address));
+                    taddr->ip = host_ip;
+                    taddr->port = nat_port;
+                    newEntry(makeEntry(&source_addr, taddr), ip_table);
+                    /*
+                    addEntry->original_address->ip = 123;
+                    printf("adding new entry2\n");
                     addEntry->original_address->port = source_addr.port;
+                    printf("adding new entry3\n");
                     addEntry->translated_address->ip = host_ip;
-                    addEntry->translated_address->port = nat_port;
-                    newEntry(addEntry, ip_table);
-                    
-                    // start translation
+                    addEntry->translated_address->port = nat_port; */
+                    //newEntry(addEntry, ip_table);
+                    // update packet
                     iph->saddr = htonl(host_ip);
                     tcph->source = htons(nat_port);
-                    
                     iph->check = ip_checksum((unsigned char *) iph);
                     tcph->check = tcp_checksum((unsigned char *) iph);
                     
@@ -144,24 +158,29 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 }
                 else {
                     //drop packet
+                    printf("NOT SYN: drop packet\n");
                     return nfq_set_verdict(myQueue, id, NF_DROP, 0, NULL);
                 }
             }
         }
         else {
             // inbound packet
+            printf("inbound\n");
             struct Entry *result = (struct Entry*)malloc(sizeof(struct Entry));
-            result = searchEntry(&source_addr, ip_table);
+            result = searchEntry(&dest_addr, ip_table, 1);
             if (result != NULL) {
+                printf("found entry\n");
                 //translation
-                iph->daddr = htonl(result->translated_address->ip);
-                tcph->dest = htons(result->translated_address->port);
+                printf("%u  %u", host_ip, result->original_address->ip);
+                iph->daddr = htonl(result->original_address->ip);
+                tcph->dest = htons(result->original_address->port);
                 
                 //Chekcsum
                 iph->check = tcp_checksum((unsigned char *) iph);
                 tcph->check = ip_checksum((unsigned char *) iph);
                 
                 if (pkt_flag == TH_RST) {
+                    printf("RST pkt\n");
                     //handle RST packet
                     deleteEntry(result->original_address, ip_table);
                     port[result->translated_address->port-10000] = 0;
@@ -170,6 +189,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     // 4-way hand shake
                     if (pkt_flag == TH_FIN) {
                         // FIN packet
+                        printf("FIN pkt\n");
                         if (result->state[1] == 2) {
                             result->state[0] = 1;
                         }
@@ -179,6 +199,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     }
                     else if (pkt_flag == TH_ACK) {
                         // ACK packet
+                        printf("ACK pkt\n");
                         if (result->state[0] == 1 && result->state[1] == 2) {
                             deleteEntry(result->original_address, ip_table);
                             int freeport = result->translated_address->port;
@@ -214,17 +235,17 @@ int main(int argc, const char * argv[])
         printf("Wrong no. of argument\n");
         exit(1);
     }
-    
+    int test;
     public_ip = argv[1];
     inet_aton(public_ip, &host_ip);
     host_ip = ntohl(host_ip);
     internal_ip = argv[2];
     struct in_addr temp;
     inet_aton(internal_ip, &temp);
+    subnet_mask = argv[3];
     int mask_int = atoi(subnet_mask);
     local_mask = 0xffffffff << (32 - mask_int);
     local_network = ntohl(temp.s_addr) & local_mask;
-    subnet_mask = argv[3];
     ip_table = makeIPtable();
     
     if (!(nfqHandle = nfq_open())) {
@@ -233,7 +254,8 @@ int main(int argc, const char * argv[])
     }
     
     // Unbind the handler from processing any IP packets
-    if (nfq_unbind_pf(nfqHandle, AF_INET) < 0) {
+    if ((test = nfq_unbind_pf(nfqHandle, AF_INET)) < 0) {
+        printf("Error code: %d\n", test);
         fprintf(stderr, "Error in nfq_unbind_pf()\n");
         exit(1);
     }
@@ -260,6 +282,7 @@ int main(int argc, const char * argv[])
     fd = nfq_fd(nfqHandle);
     
     while ((res = recv(fd, buf, sizeof(buf), 0)) && res >= 0) {
+        printf("Handle packet\n");
         nfq_handle_packet(nfqHandle, buf, res);
     }
     
