@@ -1,10 +1,10 @@
 CC = gcc
-LIB =
+LIB = -lnetfilter_queue
 
 all: nat
 
 nat: NAT.c checksum.c
-	${CC} -o nat NAT.c checksum.c iptable.c -lpthread${LIB}
+	${CC} -o nat NAT.c checksum.c iptable.c ${LIB}
 
 clean:
 	rm nat

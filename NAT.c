@@ -16,6 +16,7 @@
 #include <linux/types.h>
 #include <linux/netfilter.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
+#include <assert.h>
 
 #include "NAT.h"
 
@@ -26,8 +27,10 @@ char *internal_ip;
 char *public_ip;
 unsigned int host_ip;
 unsigned int nat_port;
-struct IPtable ip_table;
+struct IPtable *ip_table;
+unsigned int local_mask;
 int port[2001] = {0};
+uint32_t local_network;
 
 
 int assign_port(){
@@ -57,11 +60,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     struct iphdr *iph = (struct iphdr *)pktData;
     
     //TCP header
-    struct tcphdr *tcph = (struct tcphdr *)(pktData + (iph->ihl << 2));;
-    
-    // Subnet Mask
-    int mask_int = atoi(subnet_mask);
-    unsigned int local_mask = 0xffffffff << (32 – mask_int);
+    struct tcphdr *tcph = (struct tcphdr *)(pktData + (iph->ihl << 2));
     
     int SYN, RST, FIN, ACK;
     SYN = RST = FIN = ACK = 0;
@@ -74,7 +73,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     source_addr.port = tcph->source;
     struct Address dest_addr;
     dest_addr.ip = iph->daddr;
-    dest_addr.port = tcp->dest;
+    dest_addr.port = tcph->dest;
     
     if (iph->protocol == IPPROTO_TCP) {
         // TCP packets
@@ -82,7 +81,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
             // outbound packet
             struct Entry *temp = (struct Entry*)malloc(sizeof(struct Entry));
             // search for pair
-            temp = searchEntry(source_addr, ip_table);
+            temp = searchEntry(&source_addr, ip_table);
 
             if (temp != NULL){
                 //found pair
@@ -113,11 +112,11 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 }
                 //start translation
                 iph->saddr = temp->translated_address->ip;
-                tcp->source = temp->translated_address->port;
+                tcph->source = temp->translated_address->port;
                 
                 iph->check = ip_checksum((unsigned char *) iph);
                 tcph->check = tcp_checksum((unsigned char *) iph);
-                return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
+                return nfq_set_verdict(myQueue, id, NF_ACCEPT, ip_pkt_len, pktData);
             }
             else {
                 //can't find pair
@@ -141,17 +140,18 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     tcph->check = tcp_checksum((unsigned char *) iph);
                     
                     printTable(ip_table);
-                    return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
+                    return nfq_set_verdict(myQueue, id, NF_ACCEPT, ip_pkt_len, pktData);
                 }
                 else {
                     //drop packet
-                    return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+                    return nfq_set_verdict(myQueue, id, NF_DROP, 0, NULL);
                 }
             }
         }
         else {
             // inbound packet
-            result = searchEntry(source_addr, ip_table);
+            struct Entry *result = (struct Entry*)malloc(sizeof(struct Entry));
+            result = searchEntry(&source_addr, ip_table);
             if (result != NULL) {
                 //translation
                 iph->daddr = htonl(result->translated_address->ip);
@@ -163,39 +163,39 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 
                 if (pkt_flag == TH_RST) {
                     //handle RST packet
-                    deleteEntry(result, ip_table);
+                    deleteEntry(result->original_address, ip_table);
                     port[result->translated_address->port-10000] = 0;
                 }
                 else {
                     // 4-way hand shake
                     if (pkt_flag == TH_FIN) {
                         // FIN packet
-                        if (result->status[1] == 2) {
-                            result->status[0] = 1;
+                        if (result->state[1] == 2) {
+                            result->state[0] = 1;
                         }
                         else {
-                            result->status[0] = 2;
+                            result->state[0] = 2;
                         }
                     }
                     else if (pkt_flag == TH_ACK) {
                         // ACK packet
-                        if (result->status[0] == 1 && result->status[1] == 2) {
+                        if (result->state[0] == 1 && result->state[1] == 2) {
                             deleteEntry(result->original_address, ip_table);
                             int freeport = result->translated_address->port;
                             port[10000+ freeport] = 0;
                         }
                     }
                 }
-                return nfq_set_verdict(qh, id, NF_ACCEPT, ip_pkt_len, pktData);
+                return nfq_set_verdict(myQueue, id, NF_ACCEPT, ip_pkt_len, pktData);
             }
             else {
-                return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+                return nfq_set_verdict(myQueue, id, NF_DROP, 0, NULL);
             }
         }
     }
     else {
         // Others, can be ignored
-        return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
+        return nfq_set_verdict(myQueue, id, NF_DROP, 0, NULL);
     }
 }
 
@@ -219,8 +219,13 @@ int main(int argc, const char * argv[])
     inet_aton(public_ip, &host_ip);
     host_ip = ntohl(host_ip);
     internal_ip = argv[2];
+    struct in_addr temp;
+    inet_aton(internal_ip, &temp);
+    int mask_int = atoi(subnet_mask);
+    local_mask = 0xffffffff << (32 - mask_int);
+    local_network = ntohl(temp.s_addr) & local_mask;
     subnet_mask = argv[3];
-    ip_table = IPmakeIPtable();
+    ip_table = makeIPtable();
     
     if (!(nfqHandle = nfq_open())) {
         fprintf(stderr, "Error in nfq_open()\n");
@@ -250,9 +255,9 @@ int main(int argc, const char * argv[])
         exit(1);
     }
     
-    netlinkHandle = nfq_nfnlh(nfqHandle);
+ //   netlinkHandle = nfq_nfnlh(nfqHandle);
     
-    fd = nfnl_fd(netlinkHandle);
+    fd = nfq_fd(nfqHandle);
     
     while ((res = recv(fd, buf, sizeof(buf), 0)) && res >= 0) {
         nfq_handle_packet(nfqHandle, buf, res);
