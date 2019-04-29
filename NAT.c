@@ -113,12 +113,26 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 }
                 else if (pkt_flag == TH_ACK) {
                     printf("ACK pkt\n");
-                    if (temp->state[0] == 2 && temp->state[1] == 1) {
+                    printTable(ip_table);                    
+                    if (temp->state[0] == 1 && temp->state[1] == 2) {
                         deleteEntry(temp->original_address, ip_table);
                         int freePort = temp->original_address->port;
                         port[freePort + 10000] = 0;
                         printTable(ip_table);
                     }
+                }
+                else if (pkt_flag == TH_ACK + TH_FIN) {
+                    printf("FIN + ACK pkt\n");
+                    // FIN packet arrived
+                    // check if have handshake before
+                    if (temp->state[0] == 2) {
+                        // have receive FIN before, we are going to reply with FIN
+                        temp->state[1] = 1;
+                    }
+                    else {
+                        temp->state[1] = 2;
+                    }
+                    printf("Current state is : %d %d", temp->state[0], temp->state[1]);
                 }
                 //start translation
                 iph->saddr = htonl(temp->translated_address->ip);
@@ -136,7 +150,6 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 //see if SYN packet
                 if (pkt_flag == TH_SYN) {
                     printf("new entry+SYN packet\n");
-                    printTable(ip_table);
                     // find avaliable port
                     nat_port = assign_port();
                     // create entry
@@ -235,12 +248,22 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     else if (pkt_flag == TH_ACK) {
                         // ACK packet
                         printf("ACK pkt\n");
-                        if (result->state[0] == 1 && result->state[1] == 2) {
+                        if (result->state[0] == 2 && result->state[1] == 1) {
                             deleteEntry(result->original_address, ip_table);
                             int freeport = result->translated_address->port;
                             port[10000+ freeport] = 0;
                             printTable(ip_table);
                         }
+                    }
+                    else if (pkt_flag == TH_FIN + TH_ACK){
+                        printf("FIN + ACK!!!\n");
+                        if (result->state[1] == 2) {
+                            result->state[0] = 1;
+                        }
+                        else {
+                            result->state[0] = 2;
+                        }
+                        printf("Current state is : %d %d", result->state[0], result->state[1]);
                     }
                 }
                 return nfq_set_verdict(myQueue, id, NF_ACCEPT, ip_pkt_len, pktData);
