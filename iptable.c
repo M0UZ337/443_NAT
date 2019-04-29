@@ -81,10 +81,10 @@ Entry *searchEntry(Address *address, IPtable *iptable, int flag)
     unsigned int port = address->port;
     while (search != NULL)
     {
-        if (flag == 0 && ip == search->original_address->ip && port == search->original_address->port) {
+        if (flag == 0 && search->original_address->ip == address->ip && search->original_address->port == address->port) {
             break;
         }
-        if (flag == 1 && ip == search->translated_address->ip && port == search->translated_address->port) {
+        if (flag == 1 && search->translated_address->ip == address->ip && search->translated_address->port == address->port) {
             break;
         }
         

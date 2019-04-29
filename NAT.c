@@ -75,13 +75,6 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
     dest_addr.port = ntohs(tcph->dest);
     
     
-    struct in_addr temp;
-    printf("verify address\n");
-    temp.s_addr = htonl(source_addr.ip);
-    printf("         %15s%8d ",(char*)inet_ntoa(temp), source_addr.port);
-    temp.s_addr = htonl(dest_addr.ip);
-    printf("|            %15s%8d\n",(char*)inet_ntoa(temp), dest_addr.port);
-    
     
 
     
@@ -131,8 +124,11 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 iph->saddr = htonl(temp->translated_address->ip);
                 tcph->source = htons(temp->translated_address->port);
                 
-                iph->check = ip_checksum((unsigned char *) iph);
+                tcph->check = 0;
+                iph->check = 0;
                 tcph->check = tcp_checksum((unsigned char *) iph);
+                iph->check = ip_checksum((unsigned char *) iph);
+
                 return nfq_set_verdict(myQueue, id, NF_ACCEPT, ip_pkt_len, pktData);
             }
             else {
@@ -140,6 +136,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 //see if SYN packet
                 if (pkt_flag == TH_SYN) {
                     printf("new entry+SYN packet\n");
+                    printTable(ip_table);
                     // find avaliable port
                     nat_port = assign_port();
                     // create entry
@@ -148,7 +145,10 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     struct Address *taddr = (struct Address*) malloc(sizeof(struct Address));
                     taddr->ip = host_ip;
                     taddr->port = nat_port;
-                    newEntry(makeEntry(&source_addr, taddr), ip_table);
+                    struct Address *syn_temp = (struct Address*) malloc(sizeof(struct Address));
+                    syn_temp->ip = source_addr.ip;
+                    syn_temp->port = source_addr.port;
+                    newEntry(makeEntry(syn_temp, taddr), ip_table);
                     /*
                     addEntry->original_address->ip = 123;
                     printf("adding new entry2\n");
@@ -180,20 +180,44 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
             result = searchEntry(&dest_addr, ip_table, 1);
             if (result != NULL) {
                 printf("found entry\n");
+                printTable(ip_table);
                 //translation
-                printf("port no: %u\n", result->original_address->port);
                 iph->daddr = htonl(result->original_address->ip);
                 tcph->dest = htons(result->original_address->port);
                 
-                //Chekcsum
-                iph->check = tcp_checksum((unsigned char *) iph);
+                struct in_addr temp;
+                temp.s_addr = iph->daddr;
+                printf("testing:   %15s%8d ",(char*)inet_ntoa(temp),  tcph->dest);
+                
+                //Checksum
+                tcph->check = 0;
+                iph->check = 0;
+                
                 tcph->check = ip_checksum((unsigned char *) iph);
+                iph->check = tcp_checksum((unsigned char *) iph);
+                
+                
+                /*
+                //print result
+                printTable(ip_table);
+                struct in_addr temp;
+                printf("verify address\n");
+                temp.s_addr = htonl(result->original_address->ip);
+                printf("         %15s%8d ",(char*)inet_ntoa(temp), source_addr.port);
+                temp.s_addr = htonl(result->translated_address->ip);
+                printf("|        %15s%8d ",(char*)inet_ntoa(temp), source_addr.port);
+                temp.s_addr = htonl(source_addr.ip);
+                printf("|        %15s%8d ",(char*)inet_ntoa(temp), source_addr.port);
+                temp.s_addr = htonl(iph->daddr);
+                printf("|         %15s%8d\n",(char*)inet_ntoa(temp), dest_addr.port);
+                */
                 
                 if (pkt_flag == TH_RST) {
                     printf("RST pkt\n");
                     //handle RST packet
                     deleteEntry(result->original_address, ip_table);
                     port[result->translated_address->port-10000] = 0;
+                    printTable(ip_table);
                 }
                 else {
                     // 4-way hand shake
@@ -214,6 +238,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                             deleteEntry(result->original_address, ip_table);
                             int freeport = result->translated_address->port;
                             port[10000+ freeport] = 0;
+                            printTable(ip_table);
                         }
                     }
                 }
