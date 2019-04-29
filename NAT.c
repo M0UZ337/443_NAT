@@ -180,22 +180,23 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
             result = searchEntry(&dest_addr, ip_table, 1);
             if (result != NULL) {
                 printf("found entry\n");
-                printTable(ip_table);
+                printf("show the result port: %8d\n", result->original_address->port);
                 //translation
                 iph->daddr = htonl(result->original_address->ip);
                 tcph->dest = htons(result->original_address->port);
                 
                 struct in_addr temp;
                 temp.s_addr = iph->daddr;
-                printf("testing:   %15s%8d ",(char*)inet_ntoa(temp),  tcph->dest);
-                
+                printf("testing:   %15s%8d ",(char*)inet_ntoa(temp),  ntohs(tcph->dest));
                 //Checksum
                 tcph->check = 0;
                 iph->check = 0;
                 
-                tcph->check = ip_checksum((unsigned char *) iph);
-                iph->check = tcp_checksum((unsigned char *) iph);
+                tcph->check = tcp_checksum((unsigned char *) iph);
+                iph->check = ip_checksum((unsigned char *) iph);
                 
+                printf("showing checksum:   ");
+                show_checksum(pktData, 1);
                 
                 /*
                 //print result

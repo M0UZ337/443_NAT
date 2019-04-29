@@ -118,7 +118,6 @@ void show_checksum(unsigned char *data, int transport)
 
     if(iph->check != ip_checksum(data)) {
         fprintf(stderr, "IP checksum error (%x,%x)\n", iph->check, ip_checksum(data));
-        exit(1);
     }
 
     if(transport && iph->protocol==IPPROTO_TCP) {
@@ -127,7 +126,6 @@ void show_checksum(unsigned char *data, int transport)
         if( tcph->check != tcp_checksum(data) )
         {
             fprintf(stderr, "TCP checksum error (%x %x)\n", tcph->check, tcp_checksum(data));
-            exit(1);
         }
     }
     else if(transport && iph->protocol==IPPROTO_UDP) {
@@ -136,7 +134,6 @@ void show_checksum(unsigned char *data, int transport)
         if( udph->check != udp_checksum(data) )
         {
             fprintf(stderr, "UDP checksum error (%x %x)\n", udph->check, udp_checksum(data));
-            exit(1);
         }
     }
 }
