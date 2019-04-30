@@ -30,6 +30,16 @@ unsigned int local_mask;
 int port[2001] = {0};
 uint32_t local_network;
 
+void freeport(int port_num) {
+    if (port_num - 10000 < sizeof(port)){
+        port[port_num-10000] = 0;
+    }
+    else {
+        printf("incorrect port number");
+    }
+    return;
+}
+
 
 int assign_port(){
     int i;
@@ -95,8 +105,8 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     // RST packet arrived
                     // delete entry
                     deleteEntry(temp->original_address, ip_table);
-                    int freePort = temp->translated_address->port;
-                    port[freePort + 10000] = 0;
+                    int target = temp->translated_address->port;
+                    freeport(target);
                     printTable(ip_table);
                 }
                 else if (pkt_flag == TH_FIN) {
@@ -111,13 +121,28 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                         temp->state[1] = 2;
                     }
                 }
+                
                 else if (pkt_flag == TH_ACK) {
                     printf("ACK pkt\n");
-                    printTable(ip_table);                    
-                    if (temp->state[0] == 1 && temp->state[1] == 2) {
+                    printf("checking temp content\n");
+                    printf("original address and port:\n");
+                    struct in_addr result;
+                    result.s_addr = htonl(temp->original_address->ip);
+                    printf("%15s%8d\n",(char*)inet_ntoa(result), temp->original_address->port);
+                    printf("translated address and port\n");
+                    result.s_addr = htonl(temp->translated_address->ip);
+                    printf("%15s%8d\n",(char*)inet_ntoa(result), temp->translated_address->port);
+                    printf("trying to print state\n");
+                    printf("state[0]: %d, state[1]: %d\n", temp->state[0], temp->state[1]);
+                    int inbound, outbound;
+                    inbound = temp->state[0];
+                    outbound = temp->state[1];
+                    printf("inbound: %d, outbound: %d\n", inbound, outbound);
+                    
+                    if (inbound == 1 && outbound == 2) {
                         deleteEntry(temp->original_address, ip_table);
-                        int freePort = temp->original_address->port;
-                        port[freePort + 10000] = 0;
+                        int target = temp->translated_address->port;
+                        freeport(target);
                         printTable(ip_table);
                     }
                 }
@@ -135,6 +160,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     printf("Current state is : %d %d", temp->state[0], temp->state[1]);
                 }
                 //start translation
+                printf("modify the header\n");
                 iph->saddr = htonl(temp->translated_address->ip);
                 tcph->source = htons(temp->translated_address->port);
                 
@@ -142,7 +168,7 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 iph->check = 0;
                 tcph->check = tcp_checksum((unsigned char *) iph);
                 iph->check = ip_checksum((unsigned char *) iph);
-
+                
                 return nfq_set_verdict(myQueue, id, NF_ACCEPT, ip_pkt_len, pktData);
             }
             else {
@@ -230,7 +256,8 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     printf("RST pkt\n");
                     //handle RST packet
                     deleteEntry(result->original_address, ip_table);
-                    port[result->translated_address->port-10000] = 0;
+                    int target = result->translated_address->port;
+                    freeport(target);
                     printTable(ip_table);
                 }
                 else {
@@ -250,8 +277,8 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                         printf("ACK pkt\n");
                         if (result->state[0] == 2 && result->state[1] == 1) {
                             deleteEntry(result->original_address, ip_table);
-                            int freeport = result->translated_address->port;
-                            port[10000+ freeport] = 0;
+                            int target = result->translated_address->port;
+                            freeport(target);
                             printTable(ip_table);
                         }
                     }
