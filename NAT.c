@@ -75,7 +75,6 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
  
     //check the flag of the tcp header
     unsigned char pkt_flag = tcph->th_flags;
-    printf("flag of pkt: %u\n", pkt_flag);
     
     struct Address source_addr;
     source_addr.ip = ntohl(iph->saddr);
@@ -124,20 +123,9 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                 
                 else if (pkt_flag == TH_ACK) {
                     printf("ACK pkt\n");
-                    printf("checking temp content\n");
-                    printf("original address and port:\n");
-                    struct in_addr result;
-                    result.s_addr = htonl(temp->original_address->ip);
-                    printf("%15s%8d\n",(char*)inet_ntoa(result), temp->original_address->port);
-                    printf("translated address and port\n");
-                    result.s_addr = htonl(temp->translated_address->ip);
-                    printf("%15s%8d\n",(char*)inet_ntoa(result), temp->translated_address->port);
-                    printf("trying to print state\n");
-                    printf("state[0]: %d, state[1]: %d\n", temp->state[0], temp->state[1]);
                     int inbound, outbound;
                     inbound = temp->state[0];
                     outbound = temp->state[1];
-                    printf("inbound: %d, outbound: %d\n", inbound, outbound);
                     
                     if (inbound == 1 && outbound == 2) {
                         deleteEntry(temp->original_address, ip_table);
@@ -157,10 +145,8 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     else {
                         temp->state[1] = 2;
                     }
-                    printf("Current state is : %d %d", temp->state[0], temp->state[1]);
                 }
                 //start translation
-                printf("modify the header\n");
                 iph->saddr = htonl(temp->translated_address->ip);
                 tcph->source = htons(temp->translated_address->port);
                 
@@ -179,7 +165,6 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                     // find avaliable port
                     nat_port = assign_port();
                     // create entry
-                    printf("adding new entry: %d\n", source_addr.ip);
                     struct Entry *addEntry = (struct Entry*) malloc(sizeof(struct Entry));
                     struct Address *taddr = (struct Address*) malloc(sizeof(struct Address));
                     taddr->ip = host_ip;
@@ -219,23 +204,16 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
             result = searchEntry(&dest_addr, ip_table, 1);
             if (result != NULL) {
                 printf("found entry\n");
-                printf("show the result port: %8d\n", result->original_address->port);
                 //translation
                 iph->daddr = htonl(result->original_address->ip);
                 tcph->dest = htons(result->original_address->port);
                 
-                struct in_addr temp;
-                temp.s_addr = iph->daddr;
-                printf("testing:   %15s%8d ",(char*)inet_ntoa(temp),  ntohs(tcph->dest));
                 //Checksum
                 tcph->check = 0;
                 iph->check = 0;
                 
                 tcph->check = tcp_checksum((unsigned char *) iph);
                 iph->check = ip_checksum((unsigned char *) iph);
-                
-                printf("showing checksum:   ");
-                show_checksum(pktData, 1);
                 
                 /*
                 //print result
@@ -290,7 +268,6 @@ static int Callback(struct nfq_q_handle *myQueue, struct nfgenmsg *msg,
                         else {
                             result->state[0] = 2;
                         }
-                        printf("Current state is : %d %d", result->state[0], result->state[1]);
                     }
                 }
                 return nfq_set_verdict(myQueue, id, NF_ACCEPT, ip_pkt_len, pktData);
